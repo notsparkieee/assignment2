@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  vector-db-api:
+    build: .
+    container_name: vector-db-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist Chroma database between restarts
+      - ./data/chroma_db:/app/data/chroma_db
+      # Mount app code for development (optional, comment out for production)
+      - ./app:/app/app
+    environment:
+      - CHROMA_PERSIST_DIRECTORY=/app/data/chroma_db
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

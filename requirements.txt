@@ -5,11 +5,12 @@ pydantic==2.5.0
 pydantic-settings==2.1.0
 
 # Vector Database
-chromadb==0.4.22
+chromadb==1.4.0
 
-# Embeddings
+# Embeddings (CPU-only torch to save 1.5GB)
 sentence-transformers==2.3.1
-torch==2.1.0
+torch==2.1.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+numpy<2.0.0
 
 # Utilities
 python-multipart==0.0.6

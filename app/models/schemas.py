@@ -50,30 +50,24 @@ class MetadataBase(BaseModel):
 
 class IndexRequest(BaseModel):
     """Request model for indexing a document"""
-    document_id: str = Field(..., description="Unique document identifier")
-    user_id: str = Field(..., description="User who owns the document")
-    content: str = Field(..., min_length=1, description="Document text content")
-    metadata: Dict[str, Any] = Field(..., description="Document metadata")
+    text: str = Field(..., min_length=1, description="Document text content")
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Document metadata")
     
-    @validator('content')
-    def validate_content(cls, v):
+    @validator('text')
+    def validate_text(cls, v):
         """Why validate? Prevent empty documents"""
         if not v.strip():
-            raise ValueError("Content cannot be empty or whitespace only")
+            raise ValueError("Text cannot be empty or whitespace only")
         return v
     
     class Config:
         json_schema_extra = {
             "example": {
-                "document_id": "doc_12345",
-                "user_id": "user_789",
-                "content": "This is a medical invoice for patient John Doe...",
+                "text": "Patient John Doe has Type 2 diabetes...",
                 "metadata": {
-                    "source": "ocr",
-                    "page_number": 1,
-                    "chunk_index": 0,
-                    "created_at": "2026-01-14T10:00:00Z",
-                    "tags": ["medical", "invoice"]
+                    "patient_id": "P001",
+                    "document_type": "medical_report",
+                    "date": "2024-01-15"
                 }
             }
         }
@@ -81,16 +75,24 @@ class IndexRequest(BaseModel):
 
 class IndexResponse(BaseModel):
     """Response model for successful indexing"""
+    status: str
+    chunks_indexed: int
     message: str
-    document_id: str
-    chunks_created: int
-    chunk_ids: List[str]
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "status": "success",
+                "chunks_indexed": 4,
+                "message": "Document indexed successfully with 4 chunks"
+            }
+        }
 
 
-class SemanticSearchRequest(BaseModel):
+class SearchRequest(BaseModel):
     """Request model for semantic search"""
     query: str = Field(..., min_length=1, description="Search query")
-    top_k: int = Field(default=10, ge=1, le=100, description="Number of results")
+    top_k: int = Field(default=5, ge=1, le=100, description="Number of results")
     
     @validator('query')
     def validate_query(cls, v):
@@ -103,26 +105,32 @@ class SemanticSearchRequest(BaseModel):
         json_schema_extra = {
             "example": {
                 "query": "diabetes treatment and insulin therapy",
-                "top_k": 10
+                "top_k": 5
             }
         }
 
 
-class MetadataSearchRequest(BaseModel):
+class FilteredSearchRequest(BaseModel):
     """Request model for metadata-filtered search"""
     query: str = Field(..., min_length=1, description="Search query")
-    filters: Dict[str, Any] = Field(..., description="Metadata filters")
-    top_k: int = Field(default=10, ge=1, le=100, description="Number of results")
+    metadata_filters: Dict[str, Any] = Field(..., description="Metadata filters")
+    top_k: int = Field(default=5, ge=1, le=100, description="Number of results")
+    
+    @validator('query')
+    def validate_query(cls, v):
+        if not v.strip():
+            raise ValueError("Query cannot be empty")
+        return v.strip()
     
     class Config:
         json_schema_extra = {
             "example": {
-                "query": "patient medical records",
-                "filters": {
-                    "source": "ocr",
-                    "tags": {"$in": ["medical", "radiology"]}
+                "query": "treatment plan",
+                "metadata_filters": {
+                    "patient_id": "P001",
+                    "document_type": "medical_report"
                 },
-                "top_k": 10
+                "top_k": 5
             }
         }
 
@@ -131,72 +139,98 @@ class HybridSearchRequest(BaseModel):
     """Request model for hybrid search (vector + metadata + keywords)"""
     query: str = Field(..., min_length=1, description="Search query")
     metadata_filters: Optional[Dict[str, Any]] = Field(None, description="Metadata filters")
-    keywords: Optional[List[str]] = Field(None, description="Keywords that must be present")
-    top_k: int = Field(default=10, ge=1, le=100, description="Number of results")
+    keywords: Optional[List[str]] = Field(None, description="Keywords to boost")
+    top_k: int = Field(default=5, ge=1, le=100, description="Number of results")
+    weights: Optional[Dict[str, float]] = Field(None, description="Scoring weights")
+    
+    @validator('query')
+    def validate_query(cls, v):
+        if not v.strip():
+            raise ValueError("Query cannot be empty")
+        return v.strip()
     
     class Config:
         json_schema_extra = {
             "example": {
-                "query": "diabetes treatment plans",
+                "query": "insulin dosage",
                 "metadata_filters": {
-                    "source": "ocr",
-                    "tags": {"$in": ["medical"]}
+                    "urgency": "high"
                 },
-                "keywords": ["insulin", "therapy"],
-                "top_k": 10
+                "keywords": ["emergency", "ICU"],
+                "top_k": 5,
+                "weights": {
+                    "vector": 0.5,
+                    "metadata": 0.3,
+                    "keyword": 0.2
+                }
             }
         }
 
 
 class SearchResult(BaseModel):
     """Individual search result"""
-    chunk_id: str = Field(..., description="Unique chunk identifier")
-    content: str = Field(..., description="Chunk text content")
-    metadata: Dict[str, Any] = Field(..., description="Chunk metadata")
-    distance: float = Field(..., description="Distance from query (lower = more similar)")
-    similarity_score: float = Field(..., ge=0.0, le=1.0, description="Similarity score (higher = more similar)")
+    text: str = Field(..., description="Chunk text content")
+    score: float = Field(..., ge=0.0, le=1.0, description="Similarity score (higher = more similar)")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Chunk metadata")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "text": "Patient diagnosed with diabetes...",
+                "score": 0.87,
+                "metadata": {
+                    "patient_id": "P001",
+                    "document_type": "medical_report"
+                }
+            }
+        }
 
 
 class SearchResponse(BaseModel):
     """Response model for search operations"""
     results: List[SearchResult]
-    count: int
-    query: Optional[str] = None
+    query: str
+    total_results: int
+    search_type: str = Field(default="semantic", description="Type of search performed")
+    filters_applied: Optional[Dict[str, Any]] = Field(None, description="Filters that were applied")
+    keywords_used: Optional[List[str]] = Field(None, description="Keywords that were used")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "results": [
                     {
-                        "chunk_id": "doc123_chunk_0",
-                        "content": "Patient diagnosed with diabetes...",
+                        "text": "Patient diagnosed with diabetes...",
+                        "score": 0.87,
                         "metadata": {
-                            "document_id": "doc123",
-                            "source": "ocr",
-                            "tags": ["medical"]
-                        },
-                        "distance": 0.15,
-                        "similarity_score": 0.85
+                            "patient_id": "P001"
+                        }
                     }
                 ],
-                "count": 1,
-                "query": "diabetes treatment"
+                "query": "diabetes treatment",
+                "total_results": 1,
+                "search_type": "semantic"
             }
         }
 
 
 class StatsResponse(BaseModel):
     """Response model for database statistics"""
-    total_chunks: int
-    collection_name: str
-    embedding_dimension: Optional[int]
+    embedding_model: str
+    embedding_dimension: int
+    vector_database: str
+    collection_stats: Dict[str, Any]
     
     class Config:
         json_schema_extra = {
             "example": {
-                "total_chunks": 1250,
-                "collection_name": "documents",
-                "embedding_dimension": 384
+                "embedding_model": "all-MiniLM-L6-v2",
+                "embedding_dimension": 384,
+                "vector_database": "ChromaDB",
+                "collection_stats": {
+                    "total_documents": 156,
+                    "collection_name": "vector_store"
+                }
             }
         }
 

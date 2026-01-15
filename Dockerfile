@@ -1,41 +1,42 @@
 # Multi-stage build for smaller final image
 FROM python:3.11-slim as builder
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies needed for building
-RUN apt-get update && apt-get install -y \
+# Install system dependencies - split into separate layer for caching
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
-COPY requirements.txt .
-
-# Install Python dependencies with pip cache
-# This creates a virtual environment to copy to final stage
+# Create virtual environment
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install dependencies (using cache mount to speed up rebuilds)
+# Copy requirements ONLY (for better layer caching)
+COPY requirements.txt .
+
+# Install dependencies separately for better caching
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --upgrade pip setuptools wheel && \
-    pip install torch==2.1.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu && \
+    pip install --upgrade pip setuptools wheel
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install torch==2.1.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+
+RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements.txt
 
-# Pre-download the embedding model to avoid downloading at runtime
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
-
-# Final stage - smaller image
+# Final stage - production runtime
 FROM python:3.11-slim
 
 WORKDIR /app
 
 # Install only runtime dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -43,12 +44,11 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy pre-downloaded models from builder
-COPY --from=builder /root/.cache /root/.cache
-
 # Copy application code
 COPY ./app ./app
-COPY .env.example .env
+
+# Copy .env.example if it exists (optional)
+COPY .env.example .env* ./
 
 # Create data directory for Chroma persistence
 RUN mkdir -p /app/data/chroma_db && \

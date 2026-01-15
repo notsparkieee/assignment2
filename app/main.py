@@ -64,9 +64,13 @@ async def health_check():
     }
 
 
-# Router registration will be added in Phase 4
-# from app.api import vector_routes
-# app.include_router(vector_routes.router, prefix="/vector", tags=["Vector Operations"])
+# Register API routes
+from app.api import vector_routes
+app.include_router(
+    vector_routes.router,
+    prefix="/vector",
+    tags=["Vector Operations"]
+)
 
 
 if __name__ == "__main__":

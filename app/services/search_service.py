@@ -110,8 +110,8 @@ class SearchService:
         
         # Step 2: Search vector database
         raw_results = self.chroma_repository.semantic_search(
-            query_vector=query_vector,
-            top_k=top_k
+            query_embedding=query_vector,
+            n_results=top_k
         )
         
         # Step 3: Format results
@@ -177,9 +177,9 @@ class SearchService:
         # Step 2: Search with metadata filtering
         # ChromaDB handles filter-then-search internally
         raw_results = self.chroma_repository.metadata_filtered_search(
-            query_vector=query_vector,
-            metadata_filters=metadata_filters,
-            top_k=top_k
+            query_embedding=query_vector,
+            filters=metadata_filters,
+            n_results=top_k
         )
         
         # Step 3: Format results

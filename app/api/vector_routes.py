@@ -107,18 +107,23 @@ async def index_document(request: IndexRequest) -> IndexResponse:
         # Step 3: Prepare metadata for each chunk
         metadata_list = [request.metadata or {}] * len(chunks)
         
-        # Step 4: Store in ChromaDB
-        chroma_repository.add_chunks(
-            texts=chunks,
+        # Step 4: Generate document ID
+        import uuid
+        document_id = str(uuid.uuid4())
+        
+        # Step 5: Store in ChromaDB
+        chunk_ids = chroma_repository.add_chunks(
+            chunks=chunks,
             embeddings=embeddings,
-            metadatas=metadata_list
+            metadatas=metadata_list,
+            document_id=document_id
         )
         
         # Return success response
         return IndexResponse(
             status="success",
             chunks_indexed=len(chunks),
-            message=f"Document indexed successfully with {len(chunks)} chunks"
+            message=f"Document indexed successfully with {len(chunks)} chunks (ID: {document_id})"
         )
         
     except HTTPException:

@@ -355,8 +355,9 @@ class ChromaRepository:
         embedding_dim = None
         if total_chunks > 0:
             sample = self.collection.peek(limit=1)
-            if sample['embeddings']:
-                embedding_dim = len(sample['embeddings'][0])
+            embeddings = sample.get('embeddings')
+            if embeddings is not None and len(embeddings) > 0:
+                embedding_dim = len(embeddings[0])
         
         return {
             "total_chunks": total_chunks,

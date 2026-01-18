@@ -56,6 +56,7 @@ class EmbeddingService:
         """
         print(f"🔄 Loading embedding model: {model_name}...")
         self.model = SentenceTransformer(model_name)
+        self.model_name = model_name  # Store the model name
         self.dimension = self.model.get_sentence_embedding_dimension()
         print(f"✅ Model loaded successfully!")
         print(f"   Embedding dimension: {self.dimension}")

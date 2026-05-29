@@ -8,7 +8,9 @@ Why Pydantic?
 - Easy serialization/deserialization
 """
 
-from pydantic import BaseModel, Field, validator
+from enum import Enum
+
+from pydantic import BaseModel, Field, field_validator, validator
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 
@@ -85,6 +87,48 @@ class IndexResponse(BaseModel):
     document_id: str
     chunks_created: int
     chunk_ids: List[str]
+
+
+class SearchType(str, Enum):
+    """Search mode for unified POST /vector/search."""
+
+    semantic = "semantic"
+    filtered = "filtered"
+    hybrid = "hybrid"
+
+
+class VectorSearchRequest(BaseModel):
+    """
+    Unified search body (assignment §7: POST /vector/search).
+
+    Use search_type to select semantic, metadata-filtered, or hybrid search.
+    """
+
+    query: str = Field(..., min_length=1, description="Search query")
+    top_k: int = Field(default=10, ge=1, le=100, description="Number of results")
+    search_type: SearchType = Field(
+        default=SearchType.semantic,
+        description="semantic | filtered | hybrid",
+    )
+    filters: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Metadata filters (required when search_type=filtered)",
+    )
+    metadata_filters: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Metadata filters for hybrid search",
+    )
+    keywords: Optional[List[str]] = Field(
+        default=None,
+        description="Keywords that must appear in chunk text (hybrid)",
+    )
+
+    @field_validator("query")
+    @classmethod
+    def strip_query(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Query cannot be empty")
+        return v.strip()
 
 
 class SemanticSearchRequest(BaseModel):

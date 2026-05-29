@@ -246,14 +246,13 @@ def test_chroma_repository():
     # Test 5: Metadata filtered search
     filtered_results = repo.metadata_filtered_search(
         query_embedding=query_emb,
-        filters={"tags": ["medical"]},
+        filters={"source": "ocr"},
         n_results=10
     )
     
-    # Check that all returned results have medical tag
     returned_metas = filtered_results['metadatas'][0]
-    assert all("medical" in m.get("tags", []) for m in returned_metas), \
-        "All results should have medical tag"
+    assert all(m.get("source") == "ocr" for m in returned_metas), \
+        "All results should have source=ocr"
     print("✅ Metadata filtered search")
     
     # Test 6: Hybrid search

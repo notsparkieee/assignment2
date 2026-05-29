@@ -8,9 +8,13 @@ This is the main application file that:
 - Sets up health checks
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.api.vector_routes import router as vector_router
 from app.config import settings
+from app.exceptions import VectorServiceError
 
 # Create FastAPI application
 app = FastAPI(
@@ -64,9 +68,18 @@ async def health_check():
     }
 
 
-# Router registration will be added in Phase 4
-# from app.api import vector_routes
-# app.include_router(vector_routes.router, prefix="/vector", tags=["Vector Operations"])
+app.include_router(vector_router, prefix="/vector", tags=["Vector Operations"])
+
+
+@app.exception_handler(VectorServiceError)
+async def vector_service_error_handler(
+    _request: Request,
+    exc: VectorServiceError,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.message, "status_code": exc.status_code},
+    )
 
 
 if __name__ == "__main__":

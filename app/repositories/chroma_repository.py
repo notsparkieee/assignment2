@@ -351,12 +351,19 @@ class ChromaRepository:
         """
         total_chunks = self.collection.count()
         
-        # Get embedding dimension from first vector
+        # Get embedding dimension from first vector (if present)
         embedding_dim = None
         if total_chunks > 0:
             sample = self.collection.peek(limit=1)
-            if sample['embeddings']:
-                embedding_dim = len(sample['embeddings'][0])
+            embeddings = sample.get("embeddings")
+            if (
+                embeddings is not None
+                and len(embeddings) > 0
+                and embeddings[0] is not None
+            ):
+                embedding_dim = len(embeddings[0])
+        if embedding_dim is None:
+            embedding_dim = settings.EMBEDDING_DIMENSION
         
         return {
             "total_chunks": total_chunks,
@@ -376,5 +383,11 @@ class ChromaRepository:
         
         WARNING: This is destructive!
         """
-        self.collection.delete(where={})  # Delete all
-        print(f"⚠️  Collection reset: All data deleted")
+        name = self.collection.name
+        metadata = dict(self.collection.metadata or {})
+        self.client.delete_collection(name)
+        self.collection = self.client.get_or_create_collection(
+            name=name,
+            metadata=metadata,
+        )
+        print("Collection reset: all data deleted")

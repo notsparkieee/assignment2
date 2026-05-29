@@ -187,16 +187,23 @@ class SearchResponse(BaseModel):
 
 class StatsResponse(BaseModel):
     """Response model for database statistics"""
+
     total_chunks: int
     collection_name: str
-    embedding_dimension: Optional[int]
-    
+    embedding_dimension: Optional[int] = None
+    persist_directory: Optional[str] = None
+    chunk_size: Optional[int] = None
+    chunk_overlap: Optional[int] = None
+
     class Config:
         json_schema_extra = {
             "example": {
                 "total_chunks": 1250,
                 "collection_name": "documents",
-                "embedding_dimension": 384
+                "embedding_dimension": 384,
+                "persist_directory": "./data/chroma_db",
+                "chunk_size": 512,
+                "chunk_overlap": 50,
             }
         }
 

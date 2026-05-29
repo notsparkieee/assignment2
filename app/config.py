@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # ==========================================
     # Application Settings
     # ==========================================
-    APP_NAME: str = "Vector Database & Metadata-Driven Search System"
+    APP_NAME: str = "Vector DB & Metadata Search System"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = True
     
